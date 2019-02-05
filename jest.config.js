@@ -1,24 +1,11 @@
 module.exports = {
   collectCoverage: true,
-  collectCoverageFrom: [
-    'packages/**/!(rollup.config).{ts}',
-    '!**/node_modules/**',
-  ],
-  roots: [
-    'packages/',
-  ],
-  testPathIgnorePatterns: [
-    "/dist/"
-  ],
-  moduleFileExtensions: [
-    'ts',
-    'js',
-    'json'
-  ],
+  collectCoverageFrom: ['packages/**/!(rollup.config).{ts}', '!**/node_modules/**'],
+  roots: ['packages/'],
+  testPathIgnorePatterns: ['/dist/'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.tsx?$': 'ts-jest',
   },
-  testMatch: [
-    '**/*\.test.{ts|js}',
-  ]
+  testMatch: ['**/*.test.{tsx|ts|js}'],
 };
