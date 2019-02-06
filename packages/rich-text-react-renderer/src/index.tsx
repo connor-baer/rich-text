@@ -38,7 +38,7 @@ const defaultMarkRenderers: RenderMark = {
   [MARKS.CODE]: text => <code>{text}</code>,
 };
 
-function defaultInline(type: string, node: Inline) {
+function defaultInline(type: string, node: Inline): ReactNode {
   return (
     <span key={node.data.target.sys.id}>
       type: {node.nodeType} id: {node.data.target.sys.id}
@@ -48,12 +48,8 @@ function defaultInline(type: string, node: Inline) {
 
 export type CommonNode = Text | Block | Inline;
 
-export interface Next {
-  (nodes: CommonNode[]): ReactNode;
-}
-
 export interface NodeRenderer {
-  (node: Block | Inline, children: Next): ReactNode;
+  (node: Block | Inline, children: ReactNode): ReactNode;
 }
 
 export interface RenderNode {
@@ -61,7 +57,7 @@ export interface RenderNode {
 }
 
 export interface RenderMark {
-  [k: string]: (text: ReactNode) => ReactElement<any>;
+  [k: string]: (text: ReactNode) => ReactNode;
 }
 
 export interface Options {
@@ -78,57 +74,47 @@ export interface Options {
 /**
  * Serialize a Contentful Rich Text `document` to React tree
  */
-export function documentToReactTree(
+export function documentToReactComponents(
   richTextDocument: Document,
-  options: Partial<Options> = {},
+  options: Options = {},
 ): ReactNode {
-  if (!richTextDocument || !richTextDocument.content) {
-    return [];
+  const renderNode = {
+    ...defaultNodeRenderers,
+    ...options.renderNode,
+  };
+  const renderMark = {
+    ...defaultMarkRenderers,
+    ...options.renderMark,
+  };
+
+  function convertNodeList(nodes: CommonNode[]): ReactNode {
+    return nodes.map(
+      (node: CommonNode, index: number): ReactNode => {
+        return appendKeyToValidElement(convertNode(node), index);
+      },
+    );
   }
 
-  return nodeListToReactTree(richTextDocument.content, {
-    renderNode: {
-      ...defaultNodeRenderers,
-      ...options.renderNode,
-    },
-    renderMark: {
-      ...defaultMarkRenderers,
-      ...options.renderMark,
-    },
-  });
-}
-
-function nodeListToReactTree(nodes: CommonNode[], { renderNode, renderMark }: Options): ReactNode {
-  return nodes.map<ReactNode>((node, index) =>
-    appendKeyToValidElement(nodeToReactTree(node, { renderNode, renderMark }), index),
-  );
-}
-
-function nodeToReactTree(node: CommonNode, { renderNode, renderMark }: Options): ReactNode {
-  if (helpers.isText(node)) {
-    if (node.marks.length > 0) {
-      return node.marks.reduce(
-        (value: ReactNode, mark: Mark) => {
-          if (!renderMark[mark.type]) {
-            return value;
-          }
-          return renderMark[mark.type](value);
-        },
-        node.value as ReactNode,
-      );
+  function convertNode(node: CommonNode): ReactNode {
+    if (helpers.isText(node)) {
+      return node.marks.reduce((value: ReactNode, mark: Mark): ReactNode => {
+        if (!renderMark[mark.type]) {
+          return value;
+        }
+        return renderMark[mark.type](value);
+      }, node.value);
+    } else {
+      if (!node.nodeType || !renderNode[node.nodeType]) {
+        return null;
+      }
+      return renderNode[node.nodeType](node, convertNodeList(node.content));
     }
-    return node.value;
-  } else {
-    const children: Next = nodes => nodeListToReactTree(nodes, { renderMark, renderNode });
-    if (!node.nodeType || !renderNode[node.nodeType]) {
-      // TODO: Figure what to return when passed an unrecognized node.
-      return null;
-    }
-    return renderNode[node.nodeType](node, children);
   }
+
+  return convertNodeList(richTextDocument.content);
 }
 
-function appendKeyToValidElement(element: ReactNode, key: string | number): ReactNode {
+function appendKeyToValidElement(element: ReactNode, key: number): ReactNode {
   if (element && React.isValidElement(element) && element.key === null) {
     return React.cloneElement(element, { key });
   }
