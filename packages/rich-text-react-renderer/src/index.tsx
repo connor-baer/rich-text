@@ -69,6 +69,10 @@ export function documentToReactComponents(
   richTextDocument: Document,
   options: Options = {},
 ): ReactNode {
+  if (!richTextDocument || !richTextDocument.content) {
+    return null;
+  }
+
   return nodeListToReactComponents(richTextDocument.content, {
     renderNode: {
       ...defaultNodeRenderers,
